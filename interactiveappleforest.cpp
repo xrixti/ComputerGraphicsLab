@@ -27,6 +27,10 @@ struct Cloud {
 Tree trees[NUM_TREES];
 Cloud clouds[CLOUDS_COUNT];
 
+// Day-night variables
+float timeOfDay = 0.0f; // 0.0 = morning, 0.5 = evening, 1.0 = night
+
+// Draw a filled circle
 void drawCircle(float cx, float cy, float r, int segments) {
     glBegin(GL_POLYGON);
     for (int i = 0; i < segments; i++) {
@@ -36,9 +40,9 @@ void drawCircle(float cx, float cy, float r, int segments) {
     glEnd();
 }
 
+// Draw a tree (trunk + canopy)
 void drawTree(Tree& tree) {
-    // Trunk
-    glColor3f(0.55f, 0.27f, 0.07f);
+    glColor3f(0.55f, 0.27f, 0.07f); // trunk
     glBegin(GL_POLYGON);
     glVertex2f(tree.trunkX - 0.06f, tree.trunkY);
     glVertex2f(tree.trunkX + 0.06f, tree.trunkY);
@@ -46,8 +50,7 @@ void drawTree(Tree& tree) {
     glVertex2f(tree.trunkX - 0.06f, tree.trunkY + 0.6f);
     glEnd();
 
-    // Canopy
-    glColor3f(0.0f, 0.6f, 0.0f);
+    glColor3f(0.0f, 0.6f, 0.0f); // canopy
     glBegin(GL_TRIANGLES);
     glVertex2f(tree.canopyLeft, tree.trunkY + 0.6f);
     glVertex2f(tree.canopyRight, tree.trunkY + 0.6f);
@@ -55,15 +58,13 @@ void drawTree(Tree& tree) {
     glEnd();
 }
 
+// Draw apples
 void drawApples(Tree& tree) {
     for (auto& a : tree.apples) {
         if (!a.visible) continue;
-
         glColor3f(1.0f, 0.0f, 0.0f);
-        drawCircle(a.x, a.y, 0.035f, 20); // slightly bigger
-
-
-        if (!a.staticApple) { // only falling apples show letters
+        drawCircle(a.x, a.y, 0.035f, 20);
+        if (!a.staticApple) {
             glColor3f(0, 0, 0);
             glRasterPos2f(a.x - 0.008f, a.y - 0.008f);
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, a.key);
@@ -71,6 +72,7 @@ void drawApples(Tree& tree) {
     }
 }
 
+// Draw ground
 void drawGround() {
     glColor3f(0.2f, 0.7f, 0.2f);
     glBegin(GL_POLYGON);
@@ -81,11 +83,33 @@ void drawGround() {
     glEnd();
 }
 
+// Draw sky and clouds
 void drawSky() {
-    glClearColor(0.4f, 0.7f, 1.0f, 1.0f);
+    // Day-night background
+    float r = 0.4f * (1.0f - timeOfDay) + 0.05f * timeOfDay;
+    float g = 0.7f * (1.0f - timeOfDay) + 0.05f * timeOfDay;
+    float b = 1.0f * (1.0f - timeOfDay) + 0.2f * timeOfDay;
+    glClearColor(r, g, b, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    glColor3f(1, 1, 1);
+    // Sun & Moon positions (simple arc across top)
+    float sunX = -0.9f + 2.0f * timeOfDay;
+    float sunY = 0.5f + 0.4f * sin(timeOfDay * 3.1416); // simple arc
+    float moonX = sunX - 1.0f;
+    float moonY = sunY;
+
+    if (timeOfDay < 0.5f) { // Day: sun visible
+        glColor3f(1, 1, 0);
+        drawCircle(sunX, sunY, 0.08f, 50);
+    }
+    else { // Night: moon visible
+        glColor3f(0.9f, 0.9f, 1.0f);
+        drawCircle(moonX, moonY, 0.06f, 50);
+    }
+
+    // Clouds (dim at night)
+    float cloudAlpha = 1.0f - 0.5f * timeOfDay;
+    glColor4f(1, 1, 1, cloudAlpha);
     for (int i = 0; i < CLOUDS_COUNT; i++) {
         drawCircle(clouds[i].x, clouds[i].y, 0.07f, 20);
         drawCircle(clouds[i].x + 0.06f, clouds[i].y + 0.02f, 0.07f, 20);
@@ -93,6 +117,7 @@ void drawSky() {
     }
 }
 
+// Initialize trees
 void initTrees() {
     srand(time(0));
     for (int i = 0; i < NUM_TREES; i++) {
@@ -102,8 +127,7 @@ void initTrees() {
         trees[i].canopyRight = trees[i].trunkX + 0.25f;
         trees[i].canopyTop = trees[i].trunkY + 1.0f;
 
-        // Add 3 static decorative apples
-    // Spread 3 apples evenly within canopy
+        // Decorative apples
         for (int j = 0; j < 3; j++) {
             Apple a;
             a.staticApple = true;
@@ -113,11 +137,10 @@ void initTrees() {
             a.y = trees[i].trunkY + 0.8f - (j * 0.05f);
             trees[i].apples.push_back(a);
         }
-
     }
 }
 
-
+// Initialize clouds
 void initClouds() {
     for (int i = 0; i < CLOUDS_COUNT; i++) {
         clouds[i].x = -1.0f + i * 0.7f;
@@ -125,6 +148,7 @@ void initClouds() {
     }
 }
 
+// Display function
 void display() {
     drawSky();
     drawGround();
@@ -135,8 +159,13 @@ void display() {
     glFlush();
 }
 
+// Idle function
 void idle() {
-    // Clouds move slowly
+    // Day-night cycle slow
+    timeOfDay += 0.00002f;
+    if (timeOfDay > 1.0f) timeOfDay = 0.0f;
+
+    // Move clouds
     for (int i = 0; i < CLOUDS_COUNT; i++) {
         clouds[i].x += 0.00005f;
         if (clouds[i].x > 1.2f) {
@@ -145,16 +174,15 @@ void idle() {
         }
     }
 
-    // Falling apples
+    // Falling apples slower
     for (int i = 0; i < NUM_TREES; i++) {
         for (auto& a : trees[i].apples) {
             if (!a.staticApple && a.visible) {
-                a.y -= 0.0001f;
+                a.y -= 0.00005f; // slower
                 if (a.y < -0.5f) a.visible = false;
             }
         }
-
-        // Spawn 1 apple roughly every 5 seconds
+        // Spawn new apple
         if (rand() % 15000 < 2) {
             Apple a;
             a.x = trees[i].canopyLeft + static_cast<float>(rand() % 100) / 100.0f * 0.5f;
@@ -169,6 +197,7 @@ void idle() {
     glutPostRedisplay();
 }
 
+// Keyboard input
 void keyboard(unsigned char key, int, int) {
     for (int i = 0; i < NUM_TREES; i++) {
         for (auto& a : trees[i].apples) {
@@ -179,6 +208,7 @@ void keyboard(unsigned char key, int, int) {
     glutPostRedisplay();
 }
 
+// Initialization
 void init() {
     initTrees();
     initClouds();
@@ -186,11 +216,12 @@ void init() {
     gluOrtho2D(-1, 1, -1, 1);
 }
 
+// Main function
 int main(int argc, char** argv) {
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
     glutInitWindowSize(800, 600);
-    glutCreateWindow("Peaceful Apple Forest");
+    glutCreateWindow("Peaceful Apple Forest with Day-Night Cycle and Sun/Moon");
     init();
     glutDisplayFunc(display);
     glutKeyboardFunc(keyboard);
