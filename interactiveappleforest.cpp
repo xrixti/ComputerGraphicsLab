@@ -221,7 +221,7 @@ int main(int argc, char** argv) {
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
     glutInitWindowSize(800, 600);
-    glutCreateWindow("Peaceful Apple Forest with Day-Night Cycle and Sun/Moon");
+    glutCreateWindow("Interactive Apple Forest with Day-Night Cycle and Sun/Moon");
     init();
     glutDisplayFunc(display);
     glutKeyboardFunc(keyboard);
@@ -229,3 +229,4 @@ int main(int argc, char** argv) {
     glutMainLoop();
     return 0;
 }
+
